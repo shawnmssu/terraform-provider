@@ -34,3 +34,15 @@ func (client *UCloudClient) DescribeImageById(imageId string) (*uhost.UHostImage
 
 	return &resp.ImageSet[0], nil
 }
+
+func (client *UCloudClient) describeInstanceByIds(instanceIds []string) ([]uhost.UHostInstanceSet, error) {
+	req := client.uhostconn.NewDescribeUHostInstanceRequest()
+	req.UHostIds = instanceIds
+
+	resp, err := client.uhostconn.DescribeUHostInstance(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.UHostSet, nil
+}
