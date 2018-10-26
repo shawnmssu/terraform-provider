@@ -106,8 +106,6 @@ $ export UCLOUD_PUBLIC_KEY="your_public_key"
 $ export UCLOUD_PRIVATE_KEY="your_private_key"
 $ export UCLOUD_REGION="cn-sh2"
 $ export UCLOUD_PROJECT_ID="org-xxx"
-
-$ terraform plan
 ```
 
 ## Argument Reference

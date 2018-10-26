@@ -52,15 +52,17 @@ resource "ucloud_instance" "web" {
   # this ecurity group to allow HTTP and HTTPS access
   security_group = "${ucloud_security_group.default.id}"
 
-  name = "tf-example-lb"
-  tag  = "tf-example"
+  name  = "tf-example-lb-${format(var.count_format, count.index+1)}"
+  tag   = "tf-example"
+  count = "${var.count}"
 }
 
 resource "ucloud_lb_attachment" "default" {
   load_balancer_id = "${ucloud_lb.web.id}"
   listener_id      = "${ucloud_lb_listener.default.id}"
-  resource_type    = "instance"
-  resource_id      = "${ucloud_instance.web.id}"
+  server_ids       = ["${ucloud_instance.web.*.id}"]
+  server_type      = "instance"
+  enabled          = 1
   port             = 80
 }
 

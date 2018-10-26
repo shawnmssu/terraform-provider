@@ -50,9 +50,10 @@ resource "ucloud_instance" "web" {
 resource "ucloud_lb_attachment" "example" {
     load_balancer_id = "${ucloud_lb.web.id}"
     listener_id      = "${ucloud_lb_listener.default.id}"
-    resource_type    = "instance"
-    resource_id      = "${ucloud_instance.web.id}"
+    server_ids       = ["${ucloud_instance.web.id}"]
+    server_type      = "instance"
     port             = 80
+    enabled          = 1
 }
 ```
 
@@ -62,13 +63,7 @@ The following arguments are supported:
 
 * `load_balancer_id` - (Required) The ID of load balancer instance.
 * `listener_id` - (Required) The ID of listener servers.
-* `resource_type` - (Required) The types of backend servers, possible values are: "instance" as Elastic computing host, "UPM" as physical sever, "UDHost" as dedicated server, "UDocker" as docker host.
-* `resource_id` - (Required) The ID of backend servers.
-* `port` - (Optional) Port opened on the backend server to receive requests, range [from 1 to 65535], and default is 80.
-
-## Attributes Reference
-
-In addition to all arguments above, the following attributes are exported:
-
-* `private_ip` - The private ip address for backend servers.
-* `status` - The status of backend servers. Possible values are: "normalRunning", "exceptionRunning".
+* `server_ids` - (Required) The ID of backend servers.
+* `server_type` - (Optional) The types of backend servers, possible values are: "instance" as computing host, "UPM" as physical sever, "UDHost" as dedicated server, "UDocker" as docker host.
+* `port` - (Optional) Port opened on the backend server to receive requests, range from 1 to 65535, and default is 80.
+* `enabled` - (Optional) The switch of the backend servers, possible values are: 0 as disabled, 1 as enabled, and default is 1.

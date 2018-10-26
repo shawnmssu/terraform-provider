@@ -70,16 +70,16 @@ resource "ucloud_lb_listener" "default" {
 resource "ucloud_lb_attachment" "default" {
   load_balancer_id = "${ucloud_lb.default.id}"
   listener_id      = "${ucloud_lb_listener.default.id}"
-  resource_type    = "instance"
-  resource_id      = "${element(ucloud_instance.web.*.id, count.index)}"
+  server_ids       = ["${ucloud_instance.web.*.id}"]
+  server_type      = "instance"
+  enabled          = 1
   port             = 80
-  count            = "${var.count}"
 }
 
 resource "ucloud_lb_rule" "default" {
   load_balancer_id = "${ucloud_lb.default.id}"
   listener_id      = "${ucloud_lb_listener.default.id}"
-  backend_ids      = ["${ucloud_lb_attachment.default.*.id}"]
+  backend_ids      = ["${ucloud_lb_attachment.default.id}"]
   domain           = "www.ucloud.cn"
 }
 

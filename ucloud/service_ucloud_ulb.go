@@ -1,6 +1,8 @@
 package ucloud
 
 import (
+	"fmt"
+
 	"github.com/ucloud/ucloud-sdk-go/services/ulb"
 	"github.com/ucloud/ucloud-sdk-go/ucloud"
 	uerr "github.com/ucloud/ucloud-sdk-go/ucloud/error"
@@ -85,4 +87,96 @@ func (client *UCloudClient) describePolicyById(lbId, listenerId, policyId string
 	}
 
 	return nil, newNotFoundError(getNotFoundMessage("policy", policyId))
+}
+
+func (client *UCloudClient) removeULBAttachmentBatch(ids []string, lbId string, listenerId string, port, enabled int) error {
+	conn := client.ulbconn
+
+	backendIds, err := client.getAvaliableBackendIdsByUHostIds(lbId, listenerId, ids, port)
+	if err != nil {
+		return fmt.Errorf("%s", err)
+	}
+
+	for _, backendId := range backendIds {
+		req := conn.NewReleaseBackendRequest()
+		req.ULBId = ucloud.String(lbId)
+		req.BackendId = ucloud.String(backendId)
+
+		_, err := conn.ReleaseBackend(req)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (client *UCloudClient) addULBAttachmentBatch(ids []string, resourceType string, ulbId, listenerId string, port, enabled int) ([]string, error) {
+	conn := client.ulbconn
+
+	instances, err := client.describeInstanceByIds(ids)
+	if err != nil {
+		return nil, err
+	}
+
+	backends := []string{}
+	for _, inst := range instances {
+		id := inst.UHostId
+
+		ip := ""
+		for _, ipset := range inst.IPSet {
+			if ipset.Type == "Private" {
+				ip = ipset.IP
+			}
+		}
+
+		if ip == "" {
+			return nil, fmt.Errorf("no private ip for uhost %s")
+		}
+
+		backends = append(backends, fmt.Sprintf("%s|%s|%s|%s|%s", id, resourceType, port, enabled, ip))
+	}
+
+	// allocate backend batch
+	req := conn.NewAllocateBackendBatchRequest()
+	req.ULBId = ucloud.String(ulbId)
+	req.VServerId = ucloud.String(listenerId)
+	req.Backends = backends
+
+	resp, err := conn.AllocateBackendBatch(req)
+	if err != nil {
+		return nil, err
+	}
+
+	backendIds := []string{}
+	for _, backend := range resp.BackendSet {
+		backendIds = append(backendIds, backend.BackendId)
+	}
+
+	return backendIds, nil
+}
+
+func (client *UCloudClient) updateULBAttachmentBatch() error {
+	return nil
+}
+
+func (client *UCloudClient) getAvaliableBackendIdsByUHostIds(lbId, listenerId string, instIds []string, port int) ([]string, error) {
+	vserver, err := client.describeVServerById(lbId, listenerId)
+	if err != nil {
+		return nil, err
+	}
+
+	instMap := map[string]struct{}{}
+	for _, instId := range instIds {
+		instMap[instId] = struct{}{}
+	}
+
+	backendIds := []string{}
+	for _, item := range vserver.BackendSet {
+		if _, ok := instMap[item.ResourceId]; ok && item.Port == port {
+			backendIds = append(backendIds, item.BackendId)
+		}
+	}
+
+	return backendIds, nil
 }
