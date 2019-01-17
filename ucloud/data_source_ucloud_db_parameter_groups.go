@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/ucloud/ucloud-sdk-go/services/udb"
 	"github.com/ucloud/ucloud-sdk-go/ucloud"
 )
@@ -15,13 +16,13 @@ func dataSourceUCloudDBParameterGroups() *schema.Resource {
 		Read: dataSourceUCloudDBParameterGroupsRead,
 
 		Schema: map[string]*schema.Schema{
-			"availability_zone": &schema.Schema{
+			"availability_zone": {
 				Type:     schema.TypeString,
 				Optional: true,
 				ForceNew: true,
 			},
 
-			"ids": &schema.Schema{
+			"ids": {
 				Type:     schema.TypeList,
 				Optional: true,
 				Elem: &schema.Schema{
@@ -30,21 +31,21 @@ func dataSourceUCloudDBParameterGroups() *schema.Resource {
 				ForceNew: true,
 			},
 
-			"engine": &schema.Schema{
+			"engine": {
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ValidateFunc: validateStringInChoices([]string{"mysql", "percona", "postgresql"}),
+				ValidateFunc: validation.StringInSlice([]string{"mysql", "percona"}, false),
 			},
 
-			"engine_version": &schema.Schema{
+			"engine_version": {
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ValidateFunc: validateStringInChoices([]string{"5.1", "5.5", "5.6", "5.7", "9.4", "9.6", "10.4"}),
+				ValidateFunc: validation.StringInSlice([]string{"5.1", "5.5", "5.6", "5.7"}, false),
 			},
 
-			"region_flag": &schema.Schema{
+			"multi_az": {
 				Type:     schema.TypeBool,
 				Optional: true,
 				Default:  false,
@@ -56,67 +57,67 @@ func dataSourceUCloudDBParameterGroups() *schema.Resource {
 				Optional: true,
 			},
 
-			"total_count": &schema.Schema{
+			"total_count": {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
 
-			"parameter_groups": &schema.Schema{
+			"parameter_groups": {
 				Type:     schema.TypeList,
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"id": &schema.Schema{
+						"id": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"name": &schema.Schema{
+						"name": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"engine": &schema.Schema{
+						"engine": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"engine_version": &schema.Schema{
+						"engine_version": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"description": &schema.Schema{
+						"description": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"modifiable": &schema.Schema{
+						"modifiable": {
 							Type:     schema.TypeBool,
 							Computed: true,
 						},
 
-						"parameter_member": &schema.Schema{
+						"parameter_set": {
 							Type:     schema.TypeList,
 							Computed: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
-									"key": &schema.Schema{
+									"key": {
 										Type:     schema.TypeString,
 										Computed: true,
 									},
 
-									"value": &schema.Schema{
+									"value": {
 										Type:     schema.TypeString,
 										Computed: true,
 									},
 
-									"value_type": &schema.Schema{
+									"value_type": {
 										Type:     schema.TypeString,
 										Computed: true,
 									},
 
-									"allowed_value": &schema.Schema{
+									"allowed_value": {
 										Type:     schema.TypeString,
 										Computed: true,
 									},
@@ -146,10 +147,10 @@ func dataSourceUCloudDBParameterGroupsRead(d *schema.ResourceData, meta interfac
 		} else {
 			return fmt.Errorf("availability zone must be set when look up parameter groups  by ids")
 		}
-		for _, id := range ifaceToStringSlice(ids) {
+		for _, id := range schemaListToStringSlice(ids) {
 			dbPg, err := client.describeDBParameterGroupByIdAndZone(id, zone)
 			if err != nil {
-				return fmt.Errorf("error in read db param group %s, %s", id, err)
+				return fmt.Errorf("error on reading db param group %s, %s", id, err)
 			}
 
 			totalCount++
@@ -164,13 +165,13 @@ func dataSourceUCloudDBParameterGroupsRead(d *schema.ResourceData, meta interfac
 				req.Zone = ucloud.String(val.(string))
 			}
 
-			if val, ok := d.GetOk("region_flag"); ok {
+			if val, ok := d.GetOk("multi_az"); ok {
 				req.RegionFlag = ucloud.Bool(val.(bool))
 			}
 
 			resp, err := conn.DescribeUDBParamGroup(req)
 			if err != nil {
-				return fmt.Errorf("error in read db parameter groups, %s", err)
+				return fmt.Errorf("error on reading db parameter groups, %s", err)
 			}
 
 			if resp == nil || len(resp.DataSet) < 1 {
@@ -211,7 +212,7 @@ func dataSourceUCloudDBParameterGroupsRead(d *schema.ResourceData, meta interfac
 
 	err := dataSourceUCloudDBParameterGroupsSave(d, parameterGroups)
 	if err != nil {
-		return fmt.Errorf("error in read parameter groups, %s", err)
+		return fmt.Errorf("error on reading parameter groups, %s", err)
 	}
 
 	return nil
@@ -220,11 +221,6 @@ func dataSourceUCloudDBParameterGroupsRead(d *schema.ResourceData, meta interfac
 func dataSourceUCloudDBParameterGroupsSave(d *schema.ResourceData, parameterGroups []udb.UDBParamGroupSet) error {
 	ids := []string{}
 	data := []map[string]interface{}{}
-	valueType := make(map[int]string)
-	valueType[0] = "unknown"
-	valueType[10] = "int"
-	valueType[20] = "string"
-	valueType[30] = "bool"
 	for _, parameterGroup := range parameterGroups {
 		ids = append(ids, strconv.Itoa(parameterGroup.GroupId))
 		parameterMember := []map[string]interface{}{}
@@ -232,20 +228,20 @@ func dataSourceUCloudDBParameterGroupsSave(d *schema.ResourceData, parameterGrou
 			parameterMember = append(parameterMember, map[string]interface{}{
 				"key":           item.Key,
 				"value":         item.Value,
-				"value_type":    valueType[item.ValueType],
+				"value_type":    pgValueTypeCvt.convert(item.ValueType),
 				"allowed_value": item.AllowedVal,
 			})
 		}
 
 		arr := strings.Split(parameterGroup.DBTypeId, "-")
 		data = append(data, map[string]interface{}{
-			"id":               strconv.Itoa(parameterGroup.GroupId),
-			"name":             parameterGroup.GroupName,
-			"engine":           arr[0],
-			"engine_version":   arr[1],
-			"description":      parameterGroup.Description,
-			"modifiable":       parameterGroup.Modifiable,
-			"parameter_member": parameterMember,
+			"id":             strconv.Itoa(parameterGroup.GroupId),
+			"name":           parameterGroup.GroupName,
+			"engine":         arr[0],
+			"engine_version": arr[1],
+			"description":    parameterGroup.Description,
+			"modifiable":     parameterGroup.Modifiable,
+			"parameter_set":  parameterMember,
 		})
 	}
 

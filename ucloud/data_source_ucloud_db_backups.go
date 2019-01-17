@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/ucloud/ucloud-sdk-go/services/udb"
 	"github.com/ucloud/ucloud-sdk-go/ucloud"
 )
@@ -35,31 +36,25 @@ func dataSourceUCloudDBBackups() *schema.Resource {
 				ForceNew: true,
 			},
 
-			"class_type": &schema.Schema{
+			"backup_type": &schema.Schema{
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ValidateFunc: validateStringInChoices([]string{"sql", "postgresql"}),
-			},
-
-			"backup_type": &schema.Schema{
-				Type:     schema.TypeInt,
-				Optional: true,
-				ForceNew: true,
+				ValidateFunc: validation.StringInSlice([]string{"automatic", "manual"}, false),
 			},
 
 			"begin_time": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
-				//validateFunc:,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.ValidateRFC3339TimeString,
 			},
 
 			"end_time": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
-				//validateFunc:,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.ValidateRFC3339TimeString,
 			},
 
 			"output_file": {
@@ -72,7 +67,7 @@ func dataSourceUCloudDBBackups() *schema.Resource {
 				Computed: true,
 			},
 
-			"db_backups": &schema.Schema{
+			"backups": &schema.Schema{
 				Type:     schema.TypeList,
 				Computed: true,
 				Elem: &schema.Resource{
@@ -87,7 +82,7 @@ func dataSourceUCloudDBBackups() *schema.Resource {
 							Computed: true,
 						},
 
-						"backup_zone": &schema.Schema{
+						"standby_zone": &schema.Schema{
 							Type:     schema.TypeString,
 							Computed: true,
 						},
@@ -97,12 +92,12 @@ func dataSourceUCloudDBBackups() *schema.Resource {
 							Computed: true,
 						},
 
-						"backup_size": &schema.Schema{
+						"size": &schema.Schema{
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"backup_type": &schema.Schema{
+						"type": &schema.Schema{
 							Type:     schema.TypeString,
 							Computed: true,
 						},
@@ -117,12 +112,12 @@ func dataSourceUCloudDBBackups() *schema.Resource {
 							Computed: true,
 						},
 
-						"backup_begin_time": &schema.Schema{
+						"begin_time": &schema.Schema{
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"backup_end_time": &schema.Schema{
+						"end_time": &schema.Schema{
 							Type:     schema.TypeString,
 							Computed: true,
 						},
@@ -147,10 +142,10 @@ func dataSourceUCloudDBBackupsRead(d *schema.ResourceData, meta interface{}) err
 		} else {
 			return fmt.Errorf("availability zone must be set when look up backups by ids")
 		}
-		for _, id := range ifaceToStringSlice(ids) {
+		for _, id := range schemaListToStringSlice(ids) {
 			backup, err := client.describeDBBackupByIdAndZone(id, zone)
 			if err != nil {
-				return fmt.Errorf("error in read db backup %s, %s", id, err)
+				return fmt.Errorf("error on reading db backup %s, %s", id, err)
 			}
 
 			totalCount++
@@ -164,7 +159,7 @@ func dataSourceUCloudDBBackupsRead(d *schema.ResourceData, meta interface{}) err
 			req.DBId = ucloud.String(dbId.(string))
 			resp, err := conn.DescribeUDBBackup(req)
 			if err != nil {
-				return fmt.Errorf("error in read db backups, %s", err)
+				return fmt.Errorf("error on reading db backups, %s", err)
 			}
 
 			if resp == nil || len(resp.DataSet) < 1 {
@@ -190,26 +185,24 @@ func dataSourceUCloudDBBackupsRead(d *schema.ResourceData, meta interface{}) err
 			}
 
 			if val, ok := d.GetOk("end_time"); ok {
+				// skip error because it has been validated by schema
 				endTime, _ := stringToTimestamp(val.(string))
 				req.EndTime = ucloud.Int(endTime)
 			}
 
 			if val, ok := d.GetOk("begin_time"); ok {
+				// skip error because it has been validated by schema
 				beginTime, _ := stringToTimestamp(val.(string))
 				req.BeginTime = ucloud.Int(beginTime)
 			}
 
 			if val, ok := d.GetOk("backup_type"); ok {
-				req.BackupType = ucloud.Int(val.(int))
-			}
-
-			if val, ok := d.GetOk("class_type"); ok {
-				req.ClassType = ucloud.String(val.(string))
+				req.BackupType = ucloud.Int(backupTypeCvt.unconvert(val.(string)))
 			}
 
 			resp, err := conn.DescribeUDBBackup(req)
 			if err != nil {
-				return fmt.Errorf("error in read db backups, %s", err)
+				return fmt.Errorf("error on reading db backups, %s", err)
 			}
 
 			if resp == nil || len(resp.DataSet) < 1 {
@@ -231,7 +224,7 @@ func dataSourceUCloudDBBackupsRead(d *schema.ResourceData, meta interface{}) err
 
 	err := dataSourceUCloudDBBackupsSave(d, backups)
 	if err != nil {
-		return fmt.Errorf("error in read param groups, %s", err)
+		return fmt.Errorf("error on reading param groups, %s", err)
 	}
 
 	return nil
@@ -248,22 +241,22 @@ func dataSourceUCloudDBBackupsSave(d *schema.ResourceData, backups []udb.UDBBack
 	for _, backup := range backups {
 		ids = append(ids, strconv.Itoa(backup.BackupId))
 		data = append(data, map[string]interface{}{
-			"id":                backup.BackupId,
-			"name":              backup.BackupName,
-			"backup_size":       backup.BackupSize,
-			"backup_type":       backup.BackupType,
-			"status":            backup.State,
-			"db_id":             backup.DBId,
-			"db_name":           backup.DBName,
-			"zone":              backup.Zone,
-			"backup_zone":       backup.BackupZone,
-			"backup_begin_time": timestampToString(backup.BackupTime),
-			"backup_end_time":   timestampToString(backup.BackupEndTime),
+			"id":               backup.BackupId,
+			"name":             backup.BackupName,
+			"size":             backup.BackupSize,
+			"type":             backup.BackupType,
+			"status":           backup.State,
+			"db_instance_id":   backup.DBId,
+			"db_instance_name": backup.DBName,
+			"zone":             backup.Zone,
+			"standby_zone":     backup.BackupZone,
+			"begin_time":       timestampToString(backup.BackupTime),
+			"end_time":         timestampToString(backup.BackupEndTime),
 		})
 	}
 
 	d.SetId(hashStringArray(ids))
-	if err := d.Set("db_backups", data); err != nil {
+	if err := d.Set("backups", data); err != nil {
 		return err
 	}
 
