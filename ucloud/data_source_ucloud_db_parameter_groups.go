@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/ucloud/ucloud-sdk-go/services/udb"
 	"github.com/ucloud/ucloud-sdk-go/ucloud"
 )
@@ -16,13 +15,13 @@ func dataSourceUCloudDBParameterGroups() *schema.Resource {
 		Read: dataSourceUCloudDBParameterGroupsRead,
 
 		Schema: map[string]*schema.Schema{
-			"availability_zone": {
+			"availability_zone": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
 				ForceNew: true,
 			},
 
-			"ids": {
+			"ids": &schema.Schema{
 				Type:     schema.TypeList,
 				Optional: true,
 				Elem: &schema.Schema{
@@ -31,21 +30,21 @@ func dataSourceUCloudDBParameterGroups() *schema.Resource {
 				ForceNew: true,
 			},
 
-			"engine": {
+			"engine": &schema.Schema{
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ValidateFunc: validation.StringInSlice([]string{"mysql", "percona"}, false),
+				ValidateFunc: validateStringInChoices([]string{"mysql", "percona", "postgresql"}),
 			},
 
-			"engine_version": {
+			"engine_version": &schema.Schema{
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ValidateFunc: validation.StringInSlice([]string{"5.1", "5.5", "5.6", "5.7"}, false),
+				ValidateFunc: validateStringInChoices([]string{"5.1", "5.5", "5.6", "5.7", "9.4", "9.6", "10.4"}),
 			},
 
-			"multi_az": {
+			"multi_az": &schema.Schema{
 				Type:     schema.TypeBool,
 				Optional: true,
 				Default:  false,
@@ -57,67 +56,67 @@ func dataSourceUCloudDBParameterGroups() *schema.Resource {
 				Optional: true,
 			},
 
-			"total_count": {
+			"total_count": &schema.Schema{
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
 
-			"parameter_groups": {
+			"parameter_groups": &schema.Schema{
 				Type:     schema.TypeList,
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"id": {
+						"id": &schema.Schema{
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"name": {
+						"name": &schema.Schema{
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"engine": {
+						"engine": &schema.Schema{
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"engine_version": {
+						"engine_version": &schema.Schema{
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"description": {
+						"description": &schema.Schema{
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"modifiable": {
+						"modifiable": &schema.Schema{
 							Type:     schema.TypeBool,
 							Computed: true,
 						},
 
-						"parameter_set": {
+						"parameter_set": &schema.Schema{
 							Type:     schema.TypeList,
 							Computed: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
-									"key": {
+									"key": &schema.Schema{
 										Type:     schema.TypeString,
 										Computed: true,
 									},
 
-									"value": {
+									"value": &schema.Schema{
 										Type:     schema.TypeString,
 										Computed: true,
 									},
 
-									"value_type": {
+									"value_type": &schema.Schema{
 										Type:     schema.TypeString,
 										Computed: true,
 									},
 
-									"allowed_value": {
+									"allowed_value": &schema.Schema{
 										Type:     schema.TypeString,
 										Computed: true,
 									},
@@ -147,10 +146,10 @@ func dataSourceUCloudDBParameterGroupsRead(d *schema.ResourceData, meta interfac
 		} else {
 			return fmt.Errorf("availability zone must be set when look up parameter groups  by ids")
 		}
-		for _, id := range schemaListToStringSlice(ids) {
+		for _, id := range ifaceToStringSlice(ids) {
 			dbPg, err := client.describeDBParameterGroupByIdAndZone(id, zone)
 			if err != nil {
-				return fmt.Errorf("error on reading db param group %s, %s", id, err)
+				return fmt.Errorf("error in read db param group %s, %s", id, err)
 			}
 
 			totalCount++
@@ -171,7 +170,7 @@ func dataSourceUCloudDBParameterGroupsRead(d *schema.ResourceData, meta interfac
 
 			resp, err := conn.DescribeUDBParamGroup(req)
 			if err != nil {
-				return fmt.Errorf("error on reading db parameter groups, %s", err)
+				return fmt.Errorf("error in read db parameter groups, %s", err)
 			}
 
 			if resp == nil || len(resp.DataSet) < 1 {
@@ -212,7 +211,7 @@ func dataSourceUCloudDBParameterGroupsRead(d *schema.ResourceData, meta interfac
 
 	err := dataSourceUCloudDBParameterGroupsSave(d, parameterGroups)
 	if err != nil {
-		return fmt.Errorf("error on reading parameter groups, %s", err)
+		return fmt.Errorf("error in read parameter groups, %s", err)
 	}
 
 	return nil
@@ -228,7 +227,7 @@ func dataSourceUCloudDBParameterGroupsSave(d *schema.ResourceData, parameterGrou
 			parameterMember = append(parameterMember, map[string]interface{}{
 				"key":           item.Key,
 				"value":         item.Value,
-				"value_type":    pgValueTypeCvt.convert(item.ValueType),
+				"value_type":    pgValueTypeCvt.mustConvert(item.ValueType),
 				"allowed_value": item.AllowedVal,
 			})
 		}
