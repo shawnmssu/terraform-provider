@@ -75,10 +75,10 @@ func (client *UCloudClient) describeDBBackupByIdAndZone(backupId, zone string) (
 	return &resp.DataSet[0], nil
 }
 
-func (client *UCloudClient) dbWaitForState(dbId, target string) *resource.StateChangeConf {
+func (client *UCloudClient) dbWaitForState(dbId string, target []string) *resource.StateChangeConf {
 	return &resource.StateChangeConf{
-		Pending:    []string{"pending"},
-		Target:     []string{target},
+		Pending:    []string{statusPending},
+		Target:     target,
 		Timeout:    5 * time.Minute,
 		Delay:      5 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -86,14 +86,18 @@ func (client *UCloudClient) dbWaitForState(dbId, target string) *resource.StateC
 			db, err := client.describeDBInstanceById(dbId)
 			if err != nil {
 				if isNotFoundError(err) {
-					return nil, "pending", nil
+					return nil, statusPending, nil
 				}
 				return nil, "", err
 			}
 
 			state := db.State
-			if state != target {
-				state = "pending"
+			if state == "RecoverFail" {
+				return nil, "", fmt.Errorf("db instance recover failed, please make sure your %q is correct and matched with the other parameters", "backup_id")
+			}
+
+			if !isStringIn(state, target) {
+				state = statusPending
 			}
 
 			return db, state, nil

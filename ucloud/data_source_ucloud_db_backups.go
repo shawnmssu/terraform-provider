@@ -15,13 +15,13 @@ func dataSourceUCloudDBBackups() *schema.Resource {
 		Read: dataSourceUCloudDBBackupsRead,
 
 		Schema: map[string]*schema.Schema{
-			"availability_zone": &schema.Schema{
+			"availability_zone": {
 				Type:     schema.TypeString,
 				Optional: true,
 				ForceNew: true,
 			},
 
-			"ids": &schema.Schema{
+			"ids": {
 				Type:     schema.TypeList,
 				Optional: true,
 				Elem: &schema.Schema{
@@ -36,7 +36,7 @@ func dataSourceUCloudDBBackups() *schema.Resource {
 				ForceNew: true,
 			},
 
-			"backup_type": &schema.Schema{
+			"backup_type": {
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
@@ -62,62 +62,62 @@ func dataSourceUCloudDBBackups() *schema.Resource {
 				Optional: true,
 			},
 
-			"total_count": &schema.Schema{
+			"total_count": {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
 
-			"backups": &schema.Schema{
+			"backups": {
 				Type:     schema.TypeList,
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"id": &schema.Schema{
+						"id": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"zone": &schema.Schema{
+						"zone": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"standby_zone": &schema.Schema{
+						"standby_zone": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"name": &schema.Schema{
+						"name": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"size": &schema.Schema{
+						"size": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"type": &schema.Schema{
+						"type": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"db_instance_id": &schema.Schema{
+						"db_instance_id": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"db_instance_name": &schema.Schema{
+						"db_instance_name": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"begin_time": &schema.Schema{
+						"begin_time": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 
-						"end_time": &schema.Schema{
+						"end_time": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},

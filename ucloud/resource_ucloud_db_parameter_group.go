@@ -88,6 +88,23 @@ func resourceUCloudDBParameterGroup() *schema.Resource {
 				},
 				Set: resourceUCloudDBParameterHash,
 			},
+
+			"parameter_output": &schema.Schema{
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"key": &schema.Schema{
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"value": &schema.Schema{
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -211,6 +228,16 @@ func resourceUCloudDBParameterGroupRead(d *schema.ResourceData, meta interface{}
 	d.Set("engine", arr[0])
 	d.Set("engine_version", arr[1])
 	d.Set("description", dbPg.Description)
+
+	parameterOutput := []map[string]interface{}{}
+	for _, item := range dbPg.ParamMember {
+		parameterOutput = append(parameterOutput, map[string]interface{}{
+			"key":   item.Key,
+			"value": item.Value,
+		})
+	}
+	d.Set("parameter_output", parameterOutput)
+
 	return nil
 }
 
